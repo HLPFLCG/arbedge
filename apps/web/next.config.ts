@@ -10,7 +10,11 @@ const nextConfig: NextConfig = {
   },
   images: {
     domains: ['avatars.githubusercontent.com', 'lh3.googleusercontent.com'],
+    // Use unoptimized images for Cloudflare Pages (or use Cloudflare Images)
+    unoptimized: true,
   },
+  // Required for Cloudflare Pages
+  output: 'standalone',
 };
 
 export default nextConfig;

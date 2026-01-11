@@ -1,0 +1,21 @@
+name = "arbedge"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".vercel/output/static"
+
+# Bindings for environment variables
+# These will be set in the Cloudflare dashboard or via wrangler secret
+
+[vars]
+NEXT_PUBLIC_APP_URL = "https://arbedge.pages.dev"
+
+# KV Namespace for session storage (optional)
+# [[kv_namespaces]]
+# binding = "SESSIONS"
+# id = "your-kv-namespace-id"
+
+# D1 Database (if using Cloudflare D1 instead of Neon)
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "arbedge"
+# database_id = "your-d1-database-id"

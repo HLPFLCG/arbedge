@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "pages:build": "npx @cloudflare/next-on-pages",
+    "pages:dev": "npx wrangler pages dev .vercel/output/static --compatibility-flag=nodejs_compat",
+    "pages:deploy": "npx wrangler pages deploy .vercel/output/static"
   },
   "dependencies": {
     "@arbedge/core": "workspace:*",
@@ -57,6 +60,8 @@
     "zustand": "^4.4.7"
   },
   "devDependencies": {
+    "@cloudflare/next-on-pages": "^1.8.0",
+    "wrangler": "^3.22.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.10.0",
     "@types/react": "^18.2.0",
