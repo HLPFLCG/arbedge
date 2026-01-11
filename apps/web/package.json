@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate --schema=../../packages/database/prisma/schema.prisma && next build",
     "start": "next start",
     "lint": "next lint",
     "pages:build": "npx @cloudflare/next-on-pages",
@@ -61,6 +61,7 @@
   },
   "devDependencies": {
     "@cloudflare/next-on-pages": "^1.8.0",
+    "prisma": "^5.22.0",
     "wrangler": "^3.22.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.10.0",
