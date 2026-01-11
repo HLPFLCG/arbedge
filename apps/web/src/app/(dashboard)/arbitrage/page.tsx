@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { Suspense } from 'react';
 import { ArbitrageTable } from '@/components/arbitrage/arbitrage-table';
 import { ArbitrageFilters } from '@/components/arbitrage/arbitrage-filters';

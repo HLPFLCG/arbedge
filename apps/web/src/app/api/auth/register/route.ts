@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@arbedge/database';
 import bcrypt from 'bcryptjs';
