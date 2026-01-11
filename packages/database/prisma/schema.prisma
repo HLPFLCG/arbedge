@@ -1,0 +1,440 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============== User & Auth ==============
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String?
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  subscription   Subscription?
+  portfolio      Portfolio?
+  alertConfigs   AlertConfig[]
+  bets           Bet[]
+  accounts       Account[]
+  sessions       Session[]
+  sportsAccounts SportsAccount[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============== Subscription & Billing ==============
+
+enum SubscriptionTier {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String             @unique
+  tier                 SubscriptionTier   @default(FREE)
+  status               SubscriptionStatus @default(TRIALING)
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  stripePriceId        String?
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+// ============== Sports & Odds ==============
+
+model Sport {
+  id       String  @id @default(cuid())
+  name     String  @unique
+  slug     String  @unique
+  icon     String?
+  isActive Boolean @default(true)
+
+  leagues League[]
+
+  @@map("sports")
+}
+
+model League {
+  id       String  @id @default(cuid())
+  sportId  String
+  name     String
+  slug     String  @unique
+  country  String?
+  isActive Boolean @default(true)
+
+  sport  Sport   @relation(fields: [sportId], references: [id])
+  events Event[]
+
+  @@map("leagues")
+}
+
+model Event {
+  id         String      @id @default(cuid())
+  leagueId   String
+  externalId String?
+  homeTeam   String
+  awayTeam   String
+  startTime  DateTime
+  status     EventStatus @default(SCHEDULED)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  league     League      @relation(fields: [leagueId], references: [id])
+  markets    Market[]
+  arbitrages Arbitrage[]
+
+  @@unique([leagueId, homeTeam, awayTeam, startTime])
+  @@index([startTime])
+  @@index([status])
+  @@map("events")
+}
+
+enum EventStatus {
+  SCHEDULED
+  LIVE
+  COMPLETED
+  CANCELED
+  POSTPONED
+}
+
+model Sportsbook {
+  id       String  @id @default(cuid())
+  name     String  @unique
+  slug     String  @unique
+  logo     String?
+  website  String?
+  isActive Boolean @default(true)
+  tier     Int     @default(1)
+
+  odds           Odds[]
+  sportsAccounts SportsAccount[]
+
+  @@map("sportsbooks")
+}
+
+model Market {
+  id          String     @id @default(cuid())
+  eventId     String
+  type        MarketType
+  description String?
+  period      String?
+
+  event Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  odds  Odds[]
+
+  @@unique([eventId, type, description, period])
+  @@map("markets")
+}
+
+enum MarketType {
+  MONEYLINE
+  SPREAD
+  TOTAL
+  PROP
+  FUTURES
+}
+
+model Odds {
+  id           String   @id @default(cuid())
+  marketId     String
+  sportsbookId String
+  selection    String
+  price        Float
+  decimalPrice Float
+  line         Float?
+  timestamp    DateTime @default(now())
+  isLive       Boolean  @default(false)
+
+  market     Market     @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  sportsbook Sportsbook @relation(fields: [sportsbookId], references: [id])
+
+  @@index([marketId, sportsbookId])
+  @@index([timestamp])
+  @@map("odds")
+}
+
+// ============== Arbitrage ==============
+
+model Arbitrage {
+  id            String          @id @default(cuid())
+  eventId       String
+  marketType    MarketType
+  profitPercent Float
+  confidence    Int
+  status        ArbitrageStatus @default(ACTIVE)
+  detectedAt    DateTime        @default(now())
+  expiresAt     DateTime?
+  isLive        Boolean         @default(false)
+
+  legs      ArbitrageLeg[]
+  event     Event          @relation(fields: [eventId], references: [id])
+  bets      Bet[]
+  alertLogs AlertLog[]
+
+  @@index([detectedAt])
+  @@index([status])
+  @@index([profitPercent])
+  @@map("arbitrages")
+}
+
+enum ArbitrageStatus {
+  ACTIVE
+  EXPIRED
+  EXECUTED
+  INVALID
+}
+
+model ArbitrageLeg {
+  id           String  @id @default(cuid())
+  arbitrageId  String
+  sportsbookId String
+  selection    String
+  price        Float
+  decimalPrice Float
+  line         Float?
+  stakePercent Float
+
+  arbitrage Arbitrage @relation(fields: [arbitrageId], references: [id], onDelete: Cascade)
+
+  @@map("arbitrage_legs")
+}
+
+// ============== Portfolio & Betting ==============
+
+model Portfolio {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  totalBankroll Decimal  @db.Decimal(12, 2)
+  currency      String   @default("USD")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  snapshots    PortfolioSnapshot[]
+
+  @@map("portfolios")
+}
+
+model PortfolioSnapshot {
+  id          String   @id @default(cuid())
+  portfolioId String
+  bankroll    Decimal  @db.Decimal(12, 2)
+  pnl         Decimal  @db.Decimal(12, 2)
+  timestamp   DateTime @default(now())
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@index([portfolioId, timestamp])
+  @@map("portfolio_snapshots")
+}
+
+model Transaction {
+  id          String          @id @default(cuid())
+  portfolioId String
+  type        TransactionType
+  amount      Decimal         @db.Decimal(12, 2)
+  description String?
+  timestamp   DateTime        @default(now())
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@index([portfolioId, timestamp])
+  @@map("transactions")
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  BET_PLACED
+  BET_WON
+  BET_LOST
+  BET_VOIDED
+}
+
+model SportsAccount {
+  id           String        @id @default(cuid())
+  userId       String
+  sportsbookId String
+  username     String?
+  balance      Decimal?      @db.Decimal(12, 2)
+  status       AccountStatus @default(ACTIVE)
+  notes        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sportsbook Sportsbook  @relation(fields: [sportsbookId], references: [id])
+  bets       Bet[]
+  clvRecords CLVRecord[]
+
+  @@unique([userId, sportsbookId])
+  @@map("sports_accounts")
+}
+
+enum AccountStatus {
+  ACTIVE
+  LIMITED
+  SUSPENDED
+  CLOSED
+}
+
+model Bet {
+  id               String    @id @default(cuid())
+  userId           String
+  sportsAccountId  String
+  arbitrageId      String?
+  eventDescription String
+  selection        String
+  odds             Float
+  stake            Decimal   @db.Decimal(12, 2)
+  potentialPayout  Decimal   @db.Decimal(12, 2)
+  result           BetResult @default(PENDING)
+  actualPayout     Decimal?  @db.Decimal(12, 2)
+  placedAt         DateTime  @default(now())
+  settledAt        DateTime?
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sportsAccount SportsAccount  @relation(fields: [sportsAccountId], references: [id])
+  arbitrage     Arbitrage?     @relation(fields: [arbitrageId], references: [id])
+  clvRecord     CLVRecord?
+
+  @@index([userId, placedAt])
+  @@index([result])
+  @@map("bets")
+}
+
+enum BetResult {
+  PENDING
+  WON
+  LOST
+  PUSH
+  VOIDED
+}
+
+// ============== Account Health ==============
+
+model CLVRecord {
+  id              String   @id @default(cuid())
+  betId           String   @unique
+  sportsAccountId String
+  openingOdds     Float
+  closingOdds     Float
+  clvPercent      Float
+  recordedAt      DateTime @default(now())
+
+  bet           Bet           @relation(fields: [betId], references: [id], onDelete: Cascade)
+  sportsAccount SportsAccount @relation(fields: [sportsAccountId], references: [id])
+
+  @@index([sportsAccountId, recordedAt])
+  @@map("clv_records")
+}
+
+// ============== Alerts ==============
+
+enum AlertChannel {
+  WEBSOCKET
+  DISCORD
+  TELEGRAM
+  EMAIL
+}
+
+model AlertConfig {
+  id             String         @id @default(cuid())
+  userId         String
+  name           String
+  isActive       Boolean        @default(true)
+  channels       AlertChannel[]
+  minProfit      Float?
+  maxProfit      Float?
+  minConfidence  Int?
+  sports         String[]
+  sportsbooks    String[]
+  marketTypes    MarketType[]
+  discordWebhook String?
+  telegramChatId String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("alert_configs")
+}
+
+model AlertLog {
+  id          String       @id @default(cuid())
+  arbitrageId String
+  channel     AlertChannel
+  sentAt      DateTime     @default(now())
+  delivered   Boolean      @default(true)
+  error       String?
+
+  arbitrage Arbitrage @relation(fields: [arbitrageId], references: [id])
+
+  @@index([arbitrageId])
+  @@map("alert_logs")
+}
