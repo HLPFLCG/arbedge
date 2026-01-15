@@ -1,6 +1,7 @@
 export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { AUTH_COOKIE_NAME, AUTH_COOKIE_OPTIONS } from '@/lib/auth-config';
 
 // Redirect old NextAuth routes to our custom auth
 export async function GET(req: NextRequest) {
@@ -10,7 +11,7 @@ export async function GET(req: NextRequest) {
   // Handle signout
   if (path.includes('signout')) {
     const response = NextResponse.redirect(new URL('/login', url.origin));
-    response.cookies.set('auth-token', '', { maxAge: 0, path: '/' });
+    response.cookies.set(AUTH_COOKIE_NAME, '', { ...AUTH_COOKIE_OPTIONS, maxAge: 0 });
     return response;
   }
 
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
   // Handle signout
   if (path.includes('signout')) {
     const response = NextResponse.json({ success: true });
-    response.cookies.set('auth-token', '', { maxAge: 0, path: '/' });
+    response.cookies.set(AUTH_COOKIE_NAME, '', { ...AUTH_COOKIE_OPTIONS, maxAge: 0 });
     return response;
   }
 

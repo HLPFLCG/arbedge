@@ -1,30 +1,25 @@
 export const runtime = 'edge';
 
 import { NextResponse } from 'next/server';
+import { AUTH_COOKIE_NAME, AUTH_COOKIE_OPTIONS, getAppUrl } from '@/lib/auth-config';
 
 export async function POST() {
   const response = NextResponse.json({ success: true });
 
-  response.cookies.set('auth-token', '', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+  response.cookies.set(AUTH_COOKIE_NAME, '', {
+    ...AUTH_COOKIE_OPTIONS,
     maxAge: 0,
-    path: '/',
   });
 
   return response;
 }
 
 export async function GET() {
-  const response = NextResponse.redirect(new URL('/login', process.env.NEXTAUTH_URL || 'http://localhost:3000'));
+  const response = NextResponse.redirect(new URL('/login', getAppUrl()));
 
-  response.cookies.set('auth-token', '', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+  response.cookies.set(AUTH_COOKIE_NAME, '', {
+    ...AUTH_COOKIE_OPTIONS,
     maxAge: 0,
-    path: '/',
   });
 
   return response;

@@ -1,40 +1,53 @@
 'use client';
 
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { TrendingUp, Clock, Target, DollarSign } from 'lucide-react';
+import { useArbitrage } from '@/hooks/use-api';
 
 export function ArbitrageStats() {
-  // In production, this would fetch real data
+  const { data, isLoading } = useArbitrage();
+
   const stats = [
     {
       title: 'Active Opportunities',
-      value: '24',
-      change: '+5 from last hour',
+      value: isLoading ? '...' : String(data?.stats?.activeCount || 0),
+      change: `${data?.stats?.last24hCount || 0} in last 24h`,
       icon: TrendingUp,
       color: 'text-profit',
     },
     {
       title: 'Avg. Profit',
-      value: '2.3%',
+      value: isLoading ? '...' : `${(data?.stats?.avgProfit || 0).toFixed(1)}%`,
       change: 'Per arbitrage',
       icon: DollarSign,
       color: 'text-primary',
     },
     {
-      title: 'Avg. Confidence',
-      value: '87',
-      change: 'High quality',
+      title: 'Best Profit',
+      value: isLoading ? '...' : `${(data?.stats?.maxProfit || 0).toFixed(1)}%`,
+      change: 'Current best',
       icon: Target,
       color: 'text-green-500',
     },
     {
       title: 'Last Update',
-      value: '2s ago',
+      value: 'Just now',
       change: 'Real-time',
       icon: Clock,
       color: 'text-muted-foreground',
     },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <Skeleton key={i} className="h-24 rounded-lg" />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
