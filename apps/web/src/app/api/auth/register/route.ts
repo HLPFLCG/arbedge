@@ -1,8 +1,8 @@
 export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@arbedge/database';
-import bcrypt from 'bcryptjs';
+import { getDb, generateId } from '@/lib/db-edge';
+import { hashPassword } from '@/lib/auth-edge';
 import { z } from 'zod';
 
 const registerSchema = z.object({
@@ -16,50 +16,52 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { name, email, password } = registerSchema.parse(body);
 
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
+    const sql = getDb();
 
-    if (existingUser) {
+    // Check if user already exists
+    const existingUsers = await sql`SELECT id FROM users WHERE email = ${email}`;
+
+    if (existingUsers.length > 0) {
       return NextResponse.json(
         { error: 'An account with this email already exists' },
         { status: 400 }
       );
     }
 
-    // Hash password
-    const passwordHash = await bcrypt.hash(password, 12);
+    // Hash password using Edge-compatible function
+    const passwordHash = await hashPassword(password);
 
-    // Create user with trial subscription
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        passwordHash,
-        subscription: {
-          create: {
-            tier: 'STARTER',
-            status: 'TRIALING',
-            currentPeriodStart: new Date(),
-            currentPeriodEnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days trial
-          },
-        },
-        portfolio: {
-          create: {
-            totalBankroll: 0,
-            currency: 'USD',
-          },
-        },
-      },
-    });
+    // Generate IDs
+    const userId = generateId();
+    const subscriptionId = generateId();
+    const portfolioId = generateId();
+    const now = new Date().toISOString();
+    const trialEnd = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    // Create user
+    await sql`
+      INSERT INTO users (id, email, "passwordHash", name, "createdAt", "updatedAt")
+      VALUES (${userId}, ${email}, ${passwordHash}, ${name}, ${now}, ${now})
+    `;
+
+    // Create subscription
+    await sql`
+      INSERT INTO subscriptions (id, "userId", tier, status, "currentPeriodStart", "currentPeriodEnd", "createdAt", "updatedAt")
+      VALUES (${subscriptionId}, ${userId}, 'STARTER', 'TRIALING', ${now}, ${trialEnd}, ${now}, ${now})
+    `;
+
+    // Create portfolio
+    await sql`
+      INSERT INTO portfolios (id, "userId", "totalBankroll", currency, "createdAt", "updatedAt")
+      VALUES (${portfolioId}, ${userId}, 0, 'USD', ${now}, ${now})
+    `;
 
     return NextResponse.json({
       success: true,
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
+        id: userId,
+        email: email,
+        name: name,
       },
     });
   } catch (error) {
