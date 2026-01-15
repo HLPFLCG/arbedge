@@ -2,16 +2,17 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth-edge';
+import { getJwtSecret, AUTH_COOKIE_NAME } from '@/lib/auth-config';
 
 export async function GET(req: NextRequest) {
   try {
-    const token = req.cookies.get('auth-token')?.value;
+    const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
 
     if (!token) {
       return NextResponse.json({ user: null });
     }
 
-    const secret = process.env.NEXTAUTH_SECRET || 'fallback-secret';
+    const secret = getJwtSecret();
     const payload = await verifyToken(token, secret);
 
     if (!payload) {

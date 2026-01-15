@@ -3,6 +3,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db-edge';
 import { verifyPassword, createToken } from '@/lib/auth-edge';
+import { getJwtSecret, AUTH_COOKIE_NAME, AUTH_COOKIE_OPTIONS, JWT_EXPIRY_DAYS } from '@/lib/auth-config';
 import { z } from 'zod';
 
 const loginSchema = z.object({
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create JWT token
-    const secret = process.env.NEXTAUTH_SECRET || 'fallback-secret';
+    const secret = getJwtSecret();
     const token = await createToken(
       {
         id: user.id,
@@ -76,12 +77,9 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    response.cookies.set('auth-token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60, // 30 days
-      path: '/',
+    response.cookies.set(AUTH_COOKIE_NAME, token, {
+      ...AUTH_COOKIE_OPTIONS,
+      maxAge: JWT_EXPIRY_DAYS * 24 * 60 * 60,
     });
 
     return response;
